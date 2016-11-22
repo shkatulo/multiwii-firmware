@@ -21,7 +21,7 @@ void set_new_altitude(int32_t _new_alt);
 int32_t get_new_altitude();
 void abort_mission(unsigned char error_code);
 void GPS_adjust_heading();
-void init_RTH(void);
+void init_RTH(bool land);
 void check_land(void);
 
 #if defined(I2C_GPS)

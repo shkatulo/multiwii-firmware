@@ -340,12 +340,12 @@
 /* If you uncomment this line, you can use six states for each of the aux channels (AUX1-AUX4)
 to control your copter.
 Channel values
-1000-1230
-1231-1360
-1361-1490
-1491-1620
-1621-1749
-1750-
+1000-1230 -- 1115
+1231-1360 -- 1295
+1361-1490 -- 1425
+1491-1620 -- 1555
+1621-1749 -- 1685
+1750-     -- 1815
 
 At this moment you can use this function only with WinGUI 2.3 release. MultiWiiConf does not support it yet
 */
@@ -599,6 +599,9 @@ At this moment you can use this function only with WinGUI 2.3 release. MultiWiiC
     #define FAILSAFE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
     #define FAILSAFE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
     #define FAILSAFE_THROTTLE  (MINTHROTTLE + 200)    // (*) Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
+
+    // RTH + Land on Failsafe (FAILSAFE_OFF_DELAY and FAILSAFE_THROTTLE are not relevant if enabled)
+    #define FAILSAFE_RTH_AND_LAND
     
     #define FAILSAFE_DETECT_TRESHOLD  985
 
@@ -755,6 +758,8 @@ Also note, that maqgnetic declination changes with time, so recheck your value e
 #define RTH_ALTITUDE               15        //(**)
 //Wait to reach RTH alt before start moving to home (0-no, 1-yes)
 #define WAIT_FOR_RTH_ALT           1         //(**)
+//Land after reaching home location
+#define RTH_AND_LAND               0
 
 //Navigation engine will takeover BARO mode control
 #define NAV_TAKEOVER_BARO          1         //(**)
@@ -769,6 +774,9 @@ Also note, that maqgnetic declination changes with time, so recheck your value e
 //This governs the descent speed during landing. 100 is equals approc 50cm/sec
 #define LAND_SPEED          100
 
+#define FAST_LAND                 1
+#define FAST_LAND_LEVELS { 500, 1000, 2000, 5000, 10000 } // in cm
+#define FAST_LAND_SPEEDS { 100, 200,  500,  1000,  1500 }
 
     //#define ONLY_ALLOW_ARM_WITH_GPS_3DFIX      // Only allow FC arming if GPS has a 3D fix.
 

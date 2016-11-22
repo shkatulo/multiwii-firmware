@@ -861,13 +861,36 @@ void loop () {
     computeRC();
     // Failsafe routine - added by MIS
     #if defined(FAILSAFE)
-      if ( failsafeCnt > (5*FAILSAFE_DELAY) && f.ARMED) {                  // Stabilize, and set Throttle to specified level
-        for(i=0; i<3; i++) rcData[i] = MIDRC;                               // after specified guard time after RC signal is lost (in 0.1sec)
-        rcData[THROTTLE] = conf.failsafe_throttle;
-        if (failsafeCnt > 5*(FAILSAFE_DELAY+FAILSAFE_OFF_DELAY)) {          // Turn OFF motors after specified Time (in 0.1sec)
-          go_disarm();     // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
-          f.OK_TO_ARM = 0; // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+      if ( failsafeCnt > (5*FAILSAFE_DELAY) && f.ARMED) {
+
+        #if defined(FAILSAFE_RTH_AND_LAND)
+
+        if (f.GPS_FIX_HOME) {
+
+          if (f.GPS_mode != GPS_MODE_RTH) {
+            init_RTH(true);
+          }
+          if (mission_step.parameter2 != 1) {
+            mission_step.parameter1 = 1; // RTH + land (if RTH was enabled before Fail Safe, but without land)
+            mission_step.parameter2 = 1; // Failsafe RTH
+          }
+          
         }
+        else
+
+        #endif
+        
+        { // FAILSAFE_RTH_AND_LAND is disabled or no f.GPS_FIX_HOME
+          
+          for(i=0; i<3; i++) rcData[i] = MIDRC;                               // after specified guard time after RC signal is lost (in 0.1sec)
+          rcData[THROTTLE] = conf.failsafe_throttle;
+          if (failsafeCnt > 5*(FAILSAFE_DELAY+FAILSAFE_OFF_DELAY)) {          // Turn OFF motors after specified Time (in 0.1sec)
+            go_disarm();     // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
+            f.OK_TO_ARM = 0; // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
+          }
+          
+        }
+
         failsafeEvents++;
       }
       if ( failsafeCnt > (5*FAILSAFE_DELAY) && !f.ARMED) {  //Turn of "Ok To arm to prevent the motors from spinning after repowering the RX with low throttle and aux to arm
@@ -1146,7 +1169,7 @@ void loop () {
           if (prv_gps_modes != gps_modes_check) {                           //Check for change since last loop
             NAV_error = NAV_ERROR_NONE;
             if (rcOptions[BOXGPSHOME]) {                                    // RTH has the priotity over everything else
-              init_RTH();
+              init_RTH(RTH_AND_LAND);
             } else if (rcOptions[BOXGPSHOLD]) {                             //Position hold has priority over mission execution  //But has less priority than RTH
               if (f.GPS_mode == GPS_MODE_NAV)
                 NAV_paused_at = mission_step.number;
@@ -1177,7 +1200,6 @@ void loop () {
             } else {                                                       //None of the GPS Boxes are switched on
               f.GPS_mode = GPS_MODE_NONE;
               f.GPS_BARO_MODE = false;
-              f.THROTTLE_IGNORED = false;
               f.LAND_IN_PROGRESS = 0;
               f.THROTTLE_IGNORED = 0;
               NAV_state = NAV_STATE_NONE;
@@ -1216,7 +1238,7 @@ void loop () {
       //copter is disarmed
       f.GPS_mode = GPS_MODE_NONE;
       f.GPS_BARO_MODE = false;
-      f.THROTTLE_IGNORED = false;
+      f.THROTTLE_IGNORED = 0;
       NAV_state = NAV_STATE_NONE;
       NAV_paused_at = 0;
       NAV_error = NAV_ERROR_DISARMED;
@@ -1332,11 +1354,52 @@ void loop () {
 
     #if GPS
     if (f.LAND_IN_PROGRESS) { //If autoland is in progress then take over and decrease alt slowly
-      AltHoldCorr -= GPS_conf.land_speed;
-      if(abs(AltHoldCorr) > 512) {
-        AltHold += AltHoldCorr/512;
-        AltHoldCorr %= 512;
-      }
+
+      #if (FAST_LAND == 1)
+
+        static int32_t flLevels[] = FAST_LAND_LEVELS;
+        static int16_t flSpeeds[] = FAST_LAND_SPEEDS;
+        static int8_t flLevelsCnt = sizeof(flLevels) / sizeof(flLevels[0]);
+
+        // Above highest level - just descend with max possible speed
+        if (alt.EstAlt > flLevels[flLevelsCnt - 1]) {
+          AltHold = flLevels[flLevelsCnt - 1] - 100; // Terget is 1 meter below max level (to cross it)
+        }
+        // On some level - descend with predefined speed
+        else {
+          // Find current landing speed
+          uint16_t landSpeed = GPS_conf.land_speed;
+          for (int i = 0; i < flLevelsCnt; ++i) {
+            if (alt.EstAlt < flLevels[i]) {
+              landSpeed = flSpeeds[i];
+              break;
+            }
+          }
+
+          // Do not land if delta between current altitude and AltHold is too big. To avoid trying to land faster, than possible
+          // 1 land speed unit = ~5mm
+          if (alt.EstAlt - AltHold > landSpeed) { // Delta (in cm) more than double speed per sec (in cm)
+            landSpeed = 0;
+          }
+
+          // Descend with this speed
+          AltHoldCorr -= landSpeed;
+          if (abs(AltHoldCorr) > 512) {
+            AltHold += AltHoldCorr/512;
+            AltHoldCorr %= 512;
+          }
+        }
+      
+      #else
+
+        AltHoldCorr -= GPS_conf.land_speed;
+        if (abs(AltHoldCorr) > 512) {
+          AltHold += AltHoldCorr/512;
+          AltHoldCorr %= 512;
+        }
+      
+      #endif
+      
     }
     #endif
     //IF Throttle not ignored then allow change altitude with the stick....

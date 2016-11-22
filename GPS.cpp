@@ -235,7 +235,7 @@ uint8_t GPS_Compute(void) {
     //Check fence setting and execute RTH if neccessary
     //TODO: autolanding
     if ((GPS_conf.fence > 0) && (GPS_conf.fence < GPS_distanceToHome) && (f.GPS_mode != GPS_MODE_RTH) ) {
-      init_RTH();
+      init_RTH(RTH_AND_LAND);
     }
 
     //calculate the current velocity based on gps coordinates continously to get a valid speed at the moment when we start navigating
@@ -913,7 +913,7 @@ uint8_t hex_c(uint8_t n) {    // convert '0'..'9','A'..'F' to 0..15
 //************************************************************************
 // Common GPS functions 
 //
-void init_RTH() {
+void init_RTH(bool land) {
   f.GPS_mode = GPS_MODE_RTH;           // Set GPS_mode to RTH
   f.GPS_BARO_MODE = true;
   GPS_hold[LAT] = GPS_coord[LAT];      //All RTH starts with a poshold 
@@ -927,6 +927,12 @@ void init_RTH() {
     else set_new_altitude(alt.EstAlt);
   }
   f.GPS_head_set = 0;                                               //Allow the RTH ti handle heading
+
+  // Reset all parameters
+  mission_step.parameter1 = land ? 1 : 0;
+  mission_step.parameter2 = 0;
+  mission_step.parameter3 = 0;
+ 
   NAV_state = NAV_STATE_RTH_START;                                  //NAV engine status is Starting RTH.
 }
 
